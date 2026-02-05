@@ -1,0 +1,5 @@
+export const SERVICES = {
+  DOCTOR: "DOCTOR",
+  SALOON: "SALOON",
+  CAR_RENTAL: "CAR_RENTAL",
+};
