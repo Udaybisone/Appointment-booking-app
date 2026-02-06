@@ -10,6 +10,8 @@ const Slots = () => {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const today = new Date().toISOString().split("T")[0];
+
   // Fetch slots when date changes
   useEffect(() => {
     if (!date) return;
@@ -60,6 +62,7 @@ const Slots = () => {
           type="date"
           className="border p-2 rounded"
           value={date}
+          min={today}
           onChange={(e) => setDate(e.target.value)}
         />
       </div>

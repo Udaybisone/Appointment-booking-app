@@ -34,6 +34,15 @@ const Dashboard = () => {
     fetchAppointments(activeStatus);
   }, [activeStatus]);
 
+  const markCompleted = (id) => {
+    api.patch(`/appointments/provider/update/${id}`, { status: "COMPLETED" }).then(() => {
+      alert("Appointment marked as completed");
+      fetchAppointments(activeStatus);
+    }).catch(() => {
+      alert("Failed to update appointment status");
+    }); 
+  };
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       {/* HEADER */}
@@ -50,11 +59,10 @@ const Dashboard = () => {
           <button
             key={s.label}
             onClick={() => setActiveStatus(s.value)}
-            className={`px-4 py-2 rounded border text-sm ${
-              activeStatus === s.value
-                ? "bg-indigo-600 text-white"
-                : "bg-white hover:bg-gray-100"
-            }`}
+            className={`px-4 py-2 rounded border text-sm ${activeStatus === s.value
+              ? "bg-indigo-600 text-white"
+              : "bg-white hover:bg-gray-100"
+              }`}
           >
             {s.label}
           </button>
@@ -96,19 +104,30 @@ const Dashboard = () => {
                 </div>
 
                 {/* RIGHT */}
-                <span
-                  className={`px-3 py-1 rounded text-sm font-medium ${
-                    a.status === "PENDING"
+                <div className="flex flex-col items-end gap-2">
+                  <span
+                    className={`px-3 py-1 rounded text-sm font-medium ${a.status === "PENDING"
                       ? "bg-yellow-100 text-yellow-700"
                       : a.status === "CONFIRMED"
-                      ? "bg-green-100 text-green-700"
-                      : a.status === "REJECTED"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-gray-200 text-gray-700"
-                  }`}
-                >
-                  {a.status}
-                </span>
+                        ? "bg-green-100 text-green-700"
+                        : a.status === "REJECTED"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-gray-200 text-gray-700"
+                      }`}
+                  >
+                    {a.status}
+                  </span>
+
+                  {/* MARK COMPLETE BUTTON */}
+                  {a.status === "CONFIRMED" && (
+                    <button
+                      onClick={() => markCompleted(a._id)}
+                      className="bg-indigo-600 text-white text-sm px-3 py-1 rounded hover:bg-indigo-700"
+                    >
+                      Mark as Completed
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
