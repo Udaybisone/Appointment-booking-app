@@ -4,64 +4,88 @@ import api from "../api/axios";
 
 const Slots = () => {
   const { providerId } = useParams();
+
+  const [date, setDate] = useState("");
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchSlots = async () => {
-    const res = await api.get(
-      `/availability/provider/${providerId}`
-    );
-    setSlots(res.data.data || []);
-  };
-
+  // Fetch slots when date changes
   useEffect(() => {
+    if (!date) return;
+
+    const fetchSlots = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get(
+          `/providers/${providerId}/available-slots?date=${date}`
+        );
+        setSlots(res.data.data || []);
+      } catch (err) {
+        alert("Failed to fetch slots");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchSlots();
-  }, [providerId]);
+  }, [date, providerId]);
 
   const confirmBooking = async () => {
     try {
-      setLoading(true);
       await api.post("/appointments/book", {
         providerId,
-        date: selectedSlot.date,
+        date,
         startTime: selectedSlot.startTime,
-        endTime: selectedSlot.endTime,
       });
+      alert("Booking request sent");
       setSelectedSlot(null);
-      fetchSlots(); 
-      alert("Appointment booked");
+      setSlots([]);
+      setDate("");
     } catch (err) {
       alert(err.response?.data?.message || "Booking failed");
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4">Available Slots</h2>
+      <h2 className="text-3xl font-bold mb-6">Book Appointment</h2>
 
-      {slots.length === 0 ? (
-        <p className="text-gray-500">No available slots</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {slots.map((slot) => (
-            <button
-              key={slot._id}
-              onClick={() => setSelectedSlot(slot)}
-              className="border rounded p-4 hover:bg-green-500 hover:text-white transition"
-            >
-              <p className="font-semibold">{slot.date}</p>
-              <p>
-                {slot.startTime} – {slot.endTime}
-              </p>
-            </button>
-          ))}
-        </div>
+      {/* DATE PICKER */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium mb-2">
+          Select Date
+        </label>
+        <input
+          type="date"
+          className="border p-2 rounded"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+      </div>
+
+      {/* SLOTS */}
+      {loading && <p>Loading available slots...</p>}
+
+      {!loading && date && slots.length === 0 && (
+        <p className="text-gray-500">
+          No available slots for this date
+        </p>
       )}
 
-      {/* CONFIRMATION DIALOG */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {slots.map((slot, index) => (
+          <button
+            key={index}
+            onClick={() => setSelectedSlot(slot)}
+            className="border py-2 rounded hover:bg-green-600 hover:text-white transition"
+          >
+            {slot.startTime} – {slot.endTime}
+          </button>
+        ))}
+      </div>
+
+      {/* CONFIRM MODAL */}
       {selectedSlot && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
           <div className="bg-white p-6 rounded shadow w-96">
@@ -70,11 +94,12 @@ const Slots = () => {
             </h3>
 
             <p className="mb-4">
-              Do you want to book this slot?
+              Date: <strong>{date}</strong>
               <br />
+              Time:{" "}
               <strong>
-                {selectedSlot.date} <br />
-                {selectedSlot.startTime} – {selectedSlot.endTime}
+                {selectedSlot.startTime} –{" "}
+                {selectedSlot.endTime}
               </strong>
             </p>
 
@@ -82,17 +107,15 @@ const Slots = () => {
               <button
                 onClick={() => setSelectedSlot(null)}
                 className="px-4 py-2 border rounded"
-                disabled={loading}
               >
-                No
+                Cancel
               </button>
 
               <button
                 onClick={confirmBooking}
-                className="px-4 py-2 bg-green-600 text-white rounded"
-                disabled={loading}
+                className="bg-green-600 text-white px-4 py-2 rounded"
               >
-                {loading ? "Booking..." : "Yes"}
+                Confirm
               </button>
             </div>
           </div>

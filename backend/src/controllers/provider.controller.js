@@ -1,67 +1,9 @@
-import Availability from "../models/Availability.js";
+
 import Appointment from "../models/Appointment.js";
 import { generateSlots } from "../utils/generateSlots.js";
 import Provider from "../models/Provider.js";
+import AvailabilityRule from "../models/AvailabilityRule.js";
 
-export const getAvailableSlots = async (req, res) => {
-  try {
-    const { providerId } = req.params;
-    const { date } = req.query;
-
-    if (!date) {
-      return res.status(400).json({
-        success: false,
-        message: "Date is required",
-      });
-    }
-
-    const dayOfWeek = new Date(date).getDay();
-
-    // 1. Get provider availability for that day
-    const availability = await Availability.findOne({
-      providerId,
-      dayOfWeek,
-      isHoliday: false,
-    });
-
-    if (!availability) {
-      return res.json({
-        success: true,
-        data: [],
-      });
-    }
-
-    // 2. Get already booked slots
-    const appointments = await Appointment.find({
-      providerId,
-      date,
-      status: { $in: ["PENDING", "CONFIRMED"] },
-    });
-
-    const bookedSlots = appointments.map((a) => ({
-      startTime: a.startTime,
-      endTime: a.endTime,
-    }));
-
-    // 3. Generate slots
-    const slots = generateSlots({
-      startTime: availability.startTime,
-      endTime: availability.endTime,
-      slotDuration: availability.slotDuration,
-      bookedSlots,
-    });
-
-    res.json({
-      success: true,
-      data: slots,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
 
 export const getProvidersByService = async (req, res) => {
   try {
@@ -170,5 +112,96 @@ export const updateMyProfile = async (req, res) => {
     });
   }
 };
+
+
+/**
+ * GET /api/providers/:providerId/available-slots?date=YYYY-MM-DD
+ */
+export const getAvailableSlots = async (req, res) => {
+  try {
+    const { providerId } = req.params;
+    const { date } = req.query;
+    
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date is required",
+      });
+    }
+
+    // 1️⃣ Fetch availability rule
+    const rule = await AvailabilityRule.findOne({ providerId });
+
+    if (!rule) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+
+    // 2️⃣ Check holiday
+    if (rule.holidays.includes(date)) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+    
+    // 3️⃣ Check working day
+    const dayOfWeek = new Date(date).getDay();
+    if (!rule.workingDays.includes(dayOfWeek)) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+
+    // 4️⃣ Generate slots
+    let slots = generateSlots(
+      rule.startTime,
+      rule.endTime,
+      rule.slotDuration
+    );
+    // 5️⃣ Fetch booked appointments for that date
+    const appointments = await Appointment.find({
+      providerId,
+      date,
+      status: { $in: ["PENDING", "CONFIRMED"] },
+    });
+
+    // 6️⃣ Remove overlapping slots
+    slots = slots.filter((slot) => {
+      return !appointments.some((appt) => {
+        return (
+          slot.startTime < appt.endTime &&
+          slot.endTime > appt.startTime
+        );
+      });
+    });
+
+    // 7️⃣ Remove past slots if date is today
+    const today = new Date().toISOString().split("T")[0];
+    if (date === today) {
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+      slots = slots.filter((slot) => {
+        const [h, m] = slot.startTime.split(":").map(Number);
+        return h * 60 + m > nowMinutes;
+      });
+    }
+
+    res.json({
+      success: true,
+      data: slots,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 
 
