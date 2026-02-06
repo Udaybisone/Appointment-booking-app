@@ -114,9 +114,6 @@ export const updateMyProfile = async (req, res) => {
 };
 
 
-/**
- * GET /api/providers/:providerId/available-slots?date=YYYY-MM-DD
- */
 export const getAvailableSlots = async (req, res) => {
   try {
     const { providerId } = req.params;

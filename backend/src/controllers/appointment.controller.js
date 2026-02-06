@@ -2,10 +2,7 @@ import Appointment from "../models/Appointment.js";
 import Provider from "../models/Provider.js";
 import AvailabilityRule from "../models/AvailabilityRule.js";
 
-/**
- * POST /api/appointments
- * Book an appointment (rule-based validation)
- */
+
 export const bookAppointment = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -155,7 +152,6 @@ export const getAppointments = async (req, res) => {
       query.providerId = req.user.id;
     }
 
-    // optional status filter
     if (status) {
       query.status = status;
     }

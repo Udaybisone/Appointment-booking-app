@@ -11,9 +11,6 @@ const minutesToTime = (minutes) => {
   return `${h}:${m}`;
 };
 
-/**
- * Generate slots for one day (CORRECT VERSION)
- */
 export const generateSlots = (
   startTime,
   endTime,

@@ -18,7 +18,7 @@ const Appointments = () => {
   const updateStatus = async (id, status) => {
     try {
       setLoadingId(id);
-      await api.patch(`/appointments/${id}`, { status });
+      await api.patch(`/appointments/provider/update/${id}`, { status });
       fetchAppointments(); // refresh list
     } catch (err) {
       alert("Failed to update status");

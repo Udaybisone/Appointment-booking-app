@@ -49,9 +49,8 @@ const Login = () => {
           Login
         </button>
 
-        {/* 🔁 Switch to Register */}
         <p className="text-sm text-center mt-4">
-          Don&apos;t have an account?{" "}
+          Don't have an account?{" "}
           <Link to="/register" className="text-blue-600 font-medium">
             Register
           </Link>
