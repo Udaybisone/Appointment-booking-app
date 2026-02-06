@@ -1,16 +1,25 @@
 import Appointment from "../models/Appointment.js";
-import Availability from "../models/Availability.js";
-import { isOverlapping } from "../utils/timeOverlap.js";
 import Provider from "../models/Provider.js";
+import AvailabilityRule from "../models/AvailabilityRule.js";
 
+/**
+ * POST /api/appointments
+ * Book an appointment (rule-based validation)
+ */
 export const bookAppointment = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { providerId, date, startTime, endTime } = req.body;
+    const { providerId, date, startTime } = req.body;
 
-    // 1️⃣ Find provider (to get serviceType safely)
+    if (!providerId || !date || !startTime) {
+      return res.status(400).json({
+        success: false,
+        message: "providerId, date and startTime are required",
+      });
+    }
+
+    // 1️⃣ Provider exists
     const provider = await Provider.findById(providerId);
-
     if (!provider) {
       return res.status(404).json({
         success: false,
@@ -18,40 +27,87 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
-    // 2️⃣ Find available slot
-    const slot = await Availability.findOne({
-      providerId,
-      date,
-      startTime,
-      endTime,
-      isBooked: false,
-    });
-
-    if (!slot) {
-      return res.status(409).json({
+    // 2️⃣ Availability rule exists
+    const rule = await AvailabilityRule.findOne({ providerId });
+    if (!rule) {
+      return res.status(400).json({
         success: false,
-        message: "Slot is no longer available",
+        message: "Provider availability not set",
       });
     }
 
-    // 3️⃣ Create appointment
-    const appointment = await Appointment.create({
-      userId,
+    // 3️⃣ Holiday check
+    if (rule.holidays.includes(date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Provider is not available on this date",
+      });
+    }
+
+    // 4️⃣ Working day check
+    const dayOfWeek = new Date(date).getDay();
+    if (!rule.workingDays.includes(dayOfWeek)) {
+      return res.status(400).json({
+        success: false,
+        message: "Provider is not available on this day",
+      });
+    }
+
+    // 5️⃣ Compute endTime from slotDuration
+    const [h, m] = startTime.split(":").map(Number);
+    const startMinutes = h * 60 + m;
+    const endMinutes = startMinutes + rule.slotDuration;
+
+    const endH = Math.floor(endMinutes / 60)
+      .toString()
+      .padStart(2, "0");
+    const endM = (endMinutes % 60)
+      .toString()
+      .padStart(2, "0");
+
+    const endTime = `${endH}:${endM}`;
+
+    // 6️⃣ Working hours check
+    if (
+      startTime < rule.startTime ||
+      endTime > rule.endTime
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Selected time is outside working hours",
+      });
+    }
+
+    // 7️⃣ Overlap check (CRITICAL)
+    const overlapping = await Appointment.findOne({
       providerId,
-      serviceType: provider.serviceType, // ✅ derived
+      date,
+      status: { $in: ["PENDING", "CONFIRMED"] },
+      startTime: { $lt: endTime },
+      endTime: { $gt: startTime },
+    });
+
+    if (overlapping) {
+      return res.status(409).json({
+        success: false,
+        message: "This time slot is already booked",
+      });
+    }
+
+    // 8️⃣ Create appointment
+    const appointment = await Appointment.create({
+      providerId,
+      userId,
+      serviceType: provider.serviceType,
       date,
       startTime,
       endTime,
       status: "PENDING",
     });
 
-    // Lock slot
-    slot.isBooked = true;
-    await slot.save();
-
     res.status(201).json({
       success: true,
-      message: "Appointment booked successfully",
+      message: "Booking request sent successfully",
       data: appointment,
     });
   } catch (err) {
@@ -139,20 +195,9 @@ export const cancelAppointment = async (req, res) => {
       });
     }
 
-    // 1️⃣ Update appointment status
+    // Update appointment status only
     appointment.status = "CANCELLED";
     await appointment.save();
-
-    // 2️⃣ Unlock slot
-    await Availability.findOneAndUpdate(
-      {
-        providerId: appointment.providerId,
-        date: appointment.date,
-        startTime: appointment.startTime,
-        endTime: appointment.endTime,
-      },
-      { isBooked: false }
-    );
 
     res.json({
       success: true,
@@ -165,5 +210,6 @@ export const cancelAppointment = async (req, res) => {
     });
   }
 };
+
 
 

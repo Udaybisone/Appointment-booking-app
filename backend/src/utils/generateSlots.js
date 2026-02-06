@@ -1,5 +1,3 @@
-// utils/generateSlots.js
-
 const timeToMinutes = (time) => {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
@@ -14,35 +12,44 @@ const minutesToTime = (minutes) => {
 };
 
 /**
- * Generate slots for one day
+ * Generate slots for one day (CORRECT VERSION)
  */
-export const generateSlots = ({
+export const generateSlots = (
   startTime,
   endTime,
   slotDuration,
   bookedSlots = [],
-}) => {
+) => {
   const slots = [];
-
-  let start = timeToMinutes(startTime);
+  
+  let current = timeToMinutes(startTime);
   const end = timeToMinutes(endTime);
 
-  while (start + slotDuration <= end) {
-    const slotStart = minutesToTime(start);
-    const slotEnd = minutesToTime(start + slotDuration);
+  while (current + slotDuration <= end) {
+    const slotStartMin = current;
+    const slotEndMin = current + slotDuration;
 
-    const isBooked = bookedSlots.some(
-      (b) => b.startTime === slotStart && b.endTime === slotEnd
-    );
+    const slotStart = minutesToTime(slotStartMin);
+    const slotEnd = minutesToTime(slotEndMin);
 
-    if (!isBooked) {
+    const overlaps = bookedSlots.some((b) => {
+      const bookedStart = timeToMinutes(b.startTime);
+      const bookedEnd = timeToMinutes(b.endTime);
+
+      return (
+        slotStartMin < bookedEnd &&
+        slotEndMin > bookedStart
+      );
+    });
+
+    if (!overlaps) {
       slots.push({
         startTime: slotStart,
         endTime: slotEnd,
       });
     }
 
-    start += slotDuration;
+    current += slotDuration;
   }
 
   return slots;

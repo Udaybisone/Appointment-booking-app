@@ -7,6 +7,13 @@ import role from "../middlewares/role.middleware.js";
 const router = express.Router();
 
 // Public: user can view available slots
+
+
+router.get(
+  "/:providerId/available-slots",
+  getAvailableSlots
+);
+
 router.get("/:providerId/slots", getAvailableSlots);
 router.get("/", getProvidersByService);
 router.get("/me", auth, role("PROVIDER"), getMyProfile);
